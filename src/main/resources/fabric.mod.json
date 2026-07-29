@@ -1,0 +1,41 @@
+{
+	"schemaVersion": 1,
+	"id": "weird-changes",
+	"version": "${version}",
+	"name": "Weird Changes",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/weird-changes/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"redboy72.weirdchanges.WeirdChanges"
+		],
+		"client": [
+			"redboy72.weirdchanges.client.WeirdChangesClient"
+		],
+		"fabric-datagen": [
+			"redboy72.weirdchanges.client.WeirdChangesDataGenerator"
+		]
+	},
+	"mixins": [
+		"weird-changes.mixins.json",
+		{
+			"config": "weird-changes.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
