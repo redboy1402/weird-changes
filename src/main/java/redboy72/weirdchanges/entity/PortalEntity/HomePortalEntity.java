@@ -35,7 +35,6 @@ public class HomePortalEntity extends Mob {
     @Override
     public void tick(){
         if (this.firstTick){
-            WeirdChanges.LOGGER.info("firstTick");
             LightningBolt bolt = EntityTypes.LIGHTNING_BOLT.create(this.level(), EntitySpawnReason.TRIGGERED);
             assert bolt != null;
             this.level().addFreshEntity(bolt);

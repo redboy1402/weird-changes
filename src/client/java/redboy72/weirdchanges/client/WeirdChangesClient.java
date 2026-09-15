@@ -42,7 +42,6 @@ public class WeirdChangesClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (Keys.BLOCK_PALETTE.getKeyMapping().consumeClick()){
 				if (client.player != null ){
-					client.player.sendSystemMessage(Component.literal("Key Pressed!"));
 					Minecraft.getInstance().setScreenAndShow(blockPaletteMenuScreen);
 				}
 			}

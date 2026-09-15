@@ -1,23 +1,23 @@
 package redboy72.weirdchanges.client.screen;
 
 import com.google.common.collect.Lists;
+import com.jcraft.jogg.Packet;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec2;
 import redboy72.weirdchanges.WeirdChanges;
 import redboy72.weirdchanges.client.control.Keys;
-import redboy72.weirdchanges.networking.blockPalette.ServerBoundPickBlockPayload;
 
 import java.util.concurrent.Executor;
 
@@ -30,6 +30,10 @@ public class BlockPaletteMenuScreen extends Screen {
 
     private final int BUTTON_WIDTH = 20;
     private final int BUTTON_HEIGHT = 20;
+    private final int RADIAL_MENU_SIZE = 50;
+    private ItemStack[] resultItems;
+    private ItemStack selectedItem;
+    private ItemStack selectedResult;
 
     public BlockPaletteMenuScreen() {
         super(Component.translatable(String.join(".", WeirdChanges.MOD_ID, "screen", "radial_menu")));
@@ -46,57 +50,70 @@ public class BlockPaletteMenuScreen extends Screen {
 
     @Override
     protected void init() {
+        resultItems = null;
         var player = Minecraft.getInstance().player;
         if (player == null) { return; }
-        var oldItemStack = player.getInventory().getSelectedItem();
-        if (oldItemStack.isEmpty()) {
+        selectedItem = player.getInventory().getSelectedItem();
+        if (selectedItem.isEmpty()) {
             return;
         }
-        if (!oldItemStack.tags().toList().contains(WeirdChanges.PaletteItems.STONES.getTag()) ) {
+        if (!selectedItem.tags().toList().contains(WeirdChanges.PaletteItems.STONES.getTag()) ) {
             return;
         }
         var stone_items = Lists.newArrayList(BuiltInRegistries.ITEM.getTagOrEmpty(WeirdChanges.PaletteItems.STONES.getTag()));
-
-        if (stone_items.isEmpty()) { return; }
+        resultItems = new ItemStack[stone_items.size() - 1];
         super.init();
 
-        var xMin = 0;
-        var yMin = 0;
         for (var i = 0; i < stone_items.size(); i++) {
             var entry = stone_items.get(i);
-            var newItemStack = new ItemStack(entry, oldItemStack.getCount());
-
-            int posX = xMin + i % 4 * 16;
-            int row = i / 4;
-            int posY = yMin + row * 18 + 2;
-            Button buttonWidget = Button.builder(Component.literal(newItemStack.getItemName().getString()), (btn) -> {
-                        ClientPlayNetworking.send(new ServerBoundPickBlockPayload(newItemStack));
-                        player.getInventory().setSelectedItem(newItemStack);
-                })
-                    .bounds(
-                            (int) posX /*(Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 - BUTTON_WIDTH / 2)*/,
-                            (int) posY /*(Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 - BUTTON_HEIGHT / 2)*/,
-                            BUTTON_WIDTH,
-                            BUTTON_HEIGHT)
-                    .build();
-            this.addRenderableWidget(buttonWidget);
+            var newItemStack = new ItemStack(entry, selectedItem.getCount());
+            if (newItemStack.getItem() == selectedItem.getItem()) { continue; }
+            resultItems[i] = newItemStack;
         }
     }
 
     private void renderGUIBlock(GuiGraphicsExtractor graphics) {
-        var item = new ItemStack(Blocks.DIAMOND_BLOCK);
-        graphics.item(item, Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 - BUTTON_WIDTH / 2, Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 - BUTTON_HEIGHT / 2);
+        if (resultItems == null) { return; }
+        for (int i = 0; i < resultItems.length; i++) {
+            var item = resultItems[i];
+            if (item == null || item.isEmpty()) { continue; }
+            graphics.item(
+                    item,
+                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 + RADIAL_MENU_SIZE * Math.cos(Math.PI * 2 * i / (resultItems.length))),
+                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 + RADIAL_MENU_SIZE * Math.sin(Math.PI * 2 * i / (resultItems.length)))
+                    );
+
+        }
+//        var item = new ItemStack(Blocks.DIAMOND_BLOCK);
+//        graphics.item(item, Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 - BUTTON_WIDTH / 2, Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 - BUTTON_HEIGHT / 2);
     }
 
+    @Override
+    public boolean mouseDragged(final MouseButtonEvent event, final double dx, final double dy){
+        if (!super.mouseDragged(event, dx, dy)) return false;
+        var dir = new Vec2((float)dx, (float)dy).normalized();
+        var up = new Vec2(1f, 0f);
+
+        double dot = dir.dot(up);
+        double det = ((dir.x * up.y) - (dir.y * up.x));
+        double angle = (Math.toDegrees(Math.atan2(det, dot)) + 180) / 360;
+        selectedResult = resultItems[(int) (angle * resultItems.length)];
+        return true;
+    }
 
     @Override
     public void tick() {
         super.tick();
-
         if (!Keys.BLOCK_PALETTE.isKeyDown()) {
             onClose();
-            return;
         }
+    }
+
+    @Override
+    public void onClose(){
+        var player = Minecraft.getInstance().player;
+        player.getInventory().setSelectedItem(selectedResult);
+        super.onClose();
     }
 
     @Override
