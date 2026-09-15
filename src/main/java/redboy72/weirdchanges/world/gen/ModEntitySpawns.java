@@ -14,9 +14,17 @@ public class ModEntitySpawns {
                 BiomeSelectors.all(),
                 MobCategory.MONSTER,
                 ModEntityTypes.MINI_GOLEM,
-                100,
                 10,
-                20);
+                1,
+                2);
 
+        BiomeModifications.addSpawn(
+                BiomeSelectors.all(),
+                MobCategory.AMBIENT,
+                ModEntityTypes.HOME_PORTAL,
+                200,
+                1,
+                1
+        );
     }
 }

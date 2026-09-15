@@ -3,13 +3,15 @@ package redboy72.weirdchanges.client.entity.MiniGolemEntity;// Made with Blockbe
 // Paste this class into your mod and generate all required imports
 
 
+import com.mojang.brigadier.Command;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
+import net.minecraft.commands.CommandSourceStack;
 
 public class CustomModel extends EntityModel<MiniGolemEntityRenderState> {
-
+	private Command<CommandSourceStack> stack;
 	public CustomModel(ModelPart root) {
         super(root);
 	}
