@@ -4,6 +4,8 @@ import com.google.common.collect.Lists;
 import com.jcraft.jogg.Packet;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -18,6 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec2;
 import redboy72.weirdchanges.WeirdChanges;
 import redboy72.weirdchanges.client.control.Keys;
+import redboy72.weirdchanges.networking.blockPalette.ServerBoundPickBlockPayload;
 
 import java.util.concurrent.Executor;
 
@@ -32,8 +35,9 @@ public class BlockPaletteMenuScreen extends Screen {
     private final int BUTTON_HEIGHT = 20;
     private final int RADIAL_MENU_SIZE = 50;
     private ItemStack[] resultItems;
-    private ItemStack selectedItem;
-    private ItemStack selectedResult;
+    private ItemStack selectedItem = ItemStack.EMPTY;
+    private ItemStack selectedResult = ItemStack.EMPTY;
+    private Vec2 SCREEN_CENTER;
 
     public BlockPaletteMenuScreen() {
         super(Component.translatable(String.join(".", WeirdChanges.MOD_ID, "screen", "radial_menu")));
@@ -50,6 +54,7 @@ public class BlockPaletteMenuScreen extends Screen {
 
     @Override
     protected void init() {
+        SCREEN_CENTER = new Vec2((float) Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2, (float) Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2);
         resultItems = null;
         var player = Minecraft.getInstance().player;
         if (player == null) { return; }
@@ -61,13 +66,12 @@ public class BlockPaletteMenuScreen extends Screen {
             return;
         }
         var stone_items = Lists.newArrayList(BuiltInRegistries.ITEM.getTagOrEmpty(WeirdChanges.PaletteItems.STONES.getTag()));
-        resultItems = new ItemStack[stone_items.size() - 1];
+        resultItems = new ItemStack[stone_items.size()];
         super.init();
 
         for (var i = 0; i < stone_items.size(); i++) {
             var entry = stone_items.get(i);
             var newItemStack = new ItemStack(entry, selectedItem.getCount());
-            if (newItemStack.getItem() == selectedItem.getItem()) { continue; }
             resultItems[i] = newItemStack;
         }
     }
@@ -79,27 +83,32 @@ public class BlockPaletteMenuScreen extends Screen {
             if (item == null || item.isEmpty()) { continue; }
             graphics.item(
                     item,
-                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 + RADIAL_MENU_SIZE * Math.cos(Math.PI * 2 * i / (resultItems.length))),
-                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 + RADIAL_MENU_SIZE * Math.sin(Math.PI * 2 * i / (resultItems.length)))
+                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 + RADIAL_MENU_SIZE * Math.cos(Math.PI * 2 * i / (resultItems.length)) - 8),
+                    (int) ((double) Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 + RADIAL_MENU_SIZE * Math.sin(Math.PI * 2 * i / (resultItems.length)) - 8)
                     );
-
         }
-//        var item = new ItemStack(Blocks.DIAMOND_BLOCK);
-//        graphics.item(item, Minecraft.getInstance().getWindow().getGuiScaledWidth() / 2 - BUTTON_WIDTH / 2, Minecraft.getInstance().getWindow().getGuiScaledHeight() / 2 - BUTTON_HEIGHT / 2);
     }
 
     @Override
-    public boolean mouseDragged(final MouseButtonEvent event, final double dx, final double dy){
-        if (!super.mouseDragged(event, dx, dy)) return false;
-        var dir = new Vec2((float)dx, (float)dy).normalized();
-        var up = new Vec2(1f, 0f);
+    public boolean mouseClicked(final MouseButtonEvent event, final boolean doubleClick) {
+        var dir = new Vec2(
+                (float)(event.x() - SCREEN_CENTER.x),
+                (float)(event.y() - SCREEN_CENTER.y)
+        ).normalized();
 
-        double dot = dir.dot(up);
-        double det = ((dir.x * up.y) - (dir.y * up.x));
-        double angle = (Math.toDegrees(Math.atan2(det, dot)) + 180) / 360;
-        selectedResult = resultItems[(int) (angle * resultItems.length)];
+        double segment = Math.PI * 2 / resultItems.length;
+        double angle = Math.atan2(dir.y, dir.x);
+
+        if (angle < 0) {
+            angle += Math.PI * 2;
+        }
+
+        int index = (int)((angle + segment / 2) / segment) % resultItems.length;
+        selectedResult = resultItems[index];
+
         return true;
     }
+
 
     @Override
     public void tick() {
@@ -112,7 +121,10 @@ public class BlockPaletteMenuScreen extends Screen {
     @Override
     public void onClose(){
         var player = Minecraft.getInstance().player;
-        player.getInventory().setSelectedItem(selectedResult);
+        if (player != null && selectedResult != null && !selectedResult.isEmpty()) {
+            player.getInventory().setSelectedItem(selectedResult);
+            ClientPlayNetworking.send(new ServerBoundPickBlockPayload(selectedResult));
+        }
         super.onClose();
     }
 
